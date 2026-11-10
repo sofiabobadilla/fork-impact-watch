@@ -1,0 +1,28 @@
+{
+  "by_rule": {
+    "FW-GLAM-1 failure-branch-writes-storage (possible)": 2,
+    "FW-GLAM-2 set-clear-around-call (possible)": 8,
+    "FW-GLAM-3 revert-data-oog-guess (likely)": 1,
+    "FW-GLAM-5 gasleft-metering (possible)": 2,
+    "FW-GLAM-7 stipend-transfer (possible)": 46
+  },
+  "by_rule_outside_libraries": {
+    "FW-GLAM-1 failure-branch-writes-storage (possible)": 2,
+    "FW-GLAM-2 set-clear-around-call (possible)": 6,
+    "FW-GLAM-3 revert-data-oog-guess (likely)": 1,
+    "FW-GLAM-5 gasleft-metering (possible)": 2,
+    "FW-GLAM-7 stipend-transfer (possible)": 46
+  },
+  "contracts_with_any_finding": 48,
+  "contracts_with_likely_finding_outside_libraries": 1,
+  "findings_total": 69,
+  "findings_unique_by_file_content": 59,
+  "sample": {
+    "chain": 1,
+    "deduplicated_by": "sha256 of all source files",
+    "requested": 300,
+    "scanned": 256,
+    "seed": 2,
+    "source": "Sourcify v2, a few contracts after each of many random matchIds"
+  }
+}

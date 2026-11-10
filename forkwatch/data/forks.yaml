@@ -1,0 +1,22 @@
+# Fork status per network. Updated by hand from the meta-EIP and All Core Devs notes.
+# A change here (new date, new status) is what triggers a re-scan in CI.
+as_of: "2026-11-05"
+
+forks:
+  glamsterdam:
+    name: Glamsterdam
+    meta_eip: 7773
+    source: https://eips.ethereum.org/EIPS/eip-7773
+    scheduled_eips: [2780, 7688, 7708, 7732, 7778, 7843, 7928, 7954, 7976, 7981, 7997, 8024, 8037, 8038, 8045, 8061, 8246, 8282]
+    networks:
+      sepolia:
+        status: active
+        activation: "2026-10-06T13:53:36Z"
+      hoodi:
+        status: postponed
+        activation: null
+        note: "Planned for 2026-10-26, called off on 2026-10-22 to study EIP-8037 interactions with deployed contracts."
+        source: https://www.coindesk.com/tech/2026/10/23/ethereum-delays-glamsterdam-test-after-security-devs-flag-risk-to-existing-contracts
+      mainnet:
+        status: not-scheduled
+        activation: null

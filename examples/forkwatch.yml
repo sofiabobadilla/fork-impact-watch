@@ -1,0 +1,31 @@
+# Copy to .github/workflows/forkwatch.yml in your repository.
+# Runs on every push to main and once a day, so a change in fork status or new advisories
+# reaches you without a code change, the way Dependabot picks up new releases.
+name: Fork Impact Watch
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  security-events: write
+
+jobs:
+  forkwatch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: fw
+        uses: sofiabobadilla/fork-impact-watch@main
+        with:
+          fork: glamsterdam
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always() && steps.fw.outputs.findings != '0'
+        with:
+          sarif_file: forkwatch.sarif
+          category: forkwatch

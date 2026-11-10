@@ -1,0 +1,84 @@
+name: Fork Impact Watch
+description: Flag code that an upcoming Ethereum hard fork breaks, and keep one issue per fork up to date.
+branding:
+  icon: alert-triangle
+  color: orange
+
+inputs:
+  path:
+    description: Directory to scan
+    default: "."
+  fork:
+    description: Fork to check against
+    default: glamsterdam
+  include-tests:
+    description: Also scan test directories and *.t.sol files
+    default: "false"
+  open-issue:
+    description: Create or update one issue with the findings (needs issues write permission)
+    default: "true"
+  sarif:
+    description: Write SARIF to this path for upload to code scanning (empty to skip)
+    default: forkwatch.sarif
+  fail-on:
+    description: Fail the job on findings at this confidence or higher (never, likely, possible)
+    default: never
+
+outputs:
+  findings:
+    description: Number of findings
+    value: ${{ steps.scan.outputs.findings }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install forkwatch
+      shell: bash
+      run: pip install --quiet "${{ github.action_path }}"
+
+    - name: Scan
+      id: scan
+      shell: bash
+      env:
+        FW_PATH: ${{ inputs.path }}
+        FW_FORK: ${{ inputs.fork }}
+        FW_TESTS: ${{ inputs.include-tests }}
+        FW_SARIF: ${{ inputs.sarif }}
+      run: |
+        args=(--fork "$FW_FORK")
+        [ "$FW_TESTS" = "true" ] && args+=(--include-tests)
+        forkwatch scan "$FW_PATH" "${args[@]}" --format markdown -o "$RUNNER_TEMP/forkwatch.md"
+        forkwatch scan "$FW_PATH" "${args[@]}" --format json -o "$RUNNER_TEMP/forkwatch.json"
+        if [ -n "$FW_SARIF" ]; then forkwatch scan "$FW_PATH" "${args[@]}" --format sarif -o "$FW_SARIF"; fi
+        n=$(python -c "import json,sys; print(len(json.load(open(sys.argv[1]))['findings']))" "$RUNNER_TEMP/forkwatch.json")
+        echo "findings=$n" >> "$GITHUB_OUTPUT"
+        cat "$RUNNER_TEMP/forkwatch.md" >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Create or update the fork issue
+      if: inputs.open-issue == 'true' && steps.scan.outputs.findings != '0'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        FW_FORK: ${{ inputs.fork }}
+      run: |
+        title="Fork impact: $FW_FORK"
+        num=$(gh issue list --state open --search "\"$title\" in:title" --json number,title \
+              --jq ".[] | select(.title == \"$title\") | .number" | head -1)
+        if [ -n "$num" ]; then
+          gh issue edit "$num" --body-file "$RUNNER_TEMP/forkwatch.md"
+        else
+          gh issue create --title "$title" --body-file "$RUNNER_TEMP/forkwatch.md"
+        fi
+
+    - name: Enforce fail-on
+      if: inputs.fail-on != 'never'
+      shell: bash
+      env:
+        FW_PATH: ${{ inputs.path }}
+        FW_FORK: ${{ inputs.fork }}
+        FW_FAIL: ${{ inputs.fail-on }}
+      run: forkwatch scan "$FW_PATH" --fork "$FW_FORK" --format text --fail-on "$FW_FAIL" > /dev/null

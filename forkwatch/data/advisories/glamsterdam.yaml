@@ -1,0 +1,95 @@
+# Fork advisories for Glamsterdam.
+# One advisory per broken assumption. Summaries are our own wording; the linked EF pages are the reference.
+# coverage: which of the fork's scheduled EIPs these advisories have been reviewed against.
+fork: glamsterdam
+spec_note: "Gas numbers follow the EF invariants repo (EELS, pinned Amsterdam spec). They change if the spec changes."
+coverage:
+  reviewed: [8037, 8038]
+  not_yet_reviewed: [2780, 7688, 7708, 7732, 7778, 7843, 7928, 7954, 7976, 7981, 7997, 8024, 8045, 8061, 8246, 8282]
+
+advisories:
+  - id: FW-GLAM-1
+    eips: [8037]
+    invariant: INV-1
+    reference: https://github.com/ethereum/glamsterdam-gas-invariants/blob/main/invariants/inv-1.md
+    title: "A starved call no longer reverts the whole transaction"
+    summary: >-
+      With a gas limit above 2^24 the transaction gets a state-gas reservoir that call{gas: X} and the
+      63/64 rule do not limit. Code after a failed call can then write new storage on very little normal
+      gas, so a caller can starve a call on purpose and make the contract record a failure for good.
+    fix: "Check before the call that the callee gets the gas it needs, and keep failures retryable instead of final."
+
+  - id: FW-GLAM-2
+    eips: [8037]
+    invariant: INV-2
+    reference: https://github.com/ethereum/glamsterdam-gas-invariants/blob/main/invariants/inv-2.md
+    title: "Clearing a slot set in the same transaction refills gas at once"
+    summary: >-
+      A slot that goes 0 -> x -> 0 in one transaction hands its 97,920 state gas back immediately, so
+      gasleft() rises mid-function. Locks and in-flight flags whose idle value is zero, set around an
+      external call, can pay for a failure branch that used to run out of gas.
+    fix: "Use transient storage for locks and per-call flags, or keep their idle value non-zero."
+
+  - id: FW-GLAM-3
+    eips: [8037]
+    invariant: INV-3
+    reference: https://github.com/ethereum/glamsterdam-gas-invariants/blob/main/invariants/inv-3.md
+    title: "Gas spent by a reverted call comes back to the caller"
+    summary: >-
+      A reverting call returns the state gas it spent, and a failed CREATE returns 183,600. Guessing that a
+      call ran out of gas from empty revert data or from a low gasleft() is no longer reliable, and an
+      unchecked CREATE/CREATE2 can leave an address with no code that later calls silently succeed against.
+    fix: "Ensure the callee received its gas before calling; check CREATE results for a non-zero address with code."
+
+  - id: FW-GLAM-4
+    eips: [8037, 8038]
+    invariant: INV-4
+    reference: https://github.com/ethereum/glamsterdam-gas-invariants/blob/main/invariants/inv-4.md
+    title: "Fixed gas amounts no longer cover the job"
+    summary: >-
+      A new storage slot costs up to 110,020 instead of 22,100, an existing-slot update about 7,200 more,
+      and a new account 183,600 of state gas. Gas limits fixed in contracts, settings, signed messages,
+      bots and relayers may now be too small, often for first-time recipients.
+    fix: "Make gas limits adjustable, re-estimate under the new schedule and add a margin."
+
+  - id: FW-GLAM-5
+    eips: [8037]
+    invariant: INV-5
+    reference: https://github.com/ethereum/glamsterdam-gas-invariants/blob/main/invariants/inv-5.md
+    title: "gasleft() differences no longer measure cost"
+    summary: >-
+      gasleft() can go up within a function, and state gas paid from the reservoir never shows in it.
+      Subtracting two readings can underflow (revert), wrap in unchecked code (over-pay), or under-charge.
+    fix: "Use checked math and charge for new storage directly instead of metering it with gasleft()."
+
+  - id: FW-GLAM-6
+    eips: [8037, 8038]
+    invariant: INV-6
+    reference: https://github.com/ethereum/glamsterdam-gas-invariants/blob/main/invariants/inv-6.md
+    title: "The 1/64 kept after a starved call may now be enough to finish"
+    summary: >-
+      Callees now need more gas, so the 1/64 the caller keeps after a starved call grows and can be enough
+      to record a failure. Contracts that were safe only because that remainder was too small can now
+      commit a permanent wrong outcome.
+    fix: "Check the callee's gas before the call (allowing for 63/64) and make failures retryable."
+
+  - id: FW-GLAM-7
+    eips: [8037, 8038]
+    invariant: INV-7
+    reference: https://github.com/ethereum/glamsterdam-gas-invariants/blob/main/invariants/inv-7.md
+    title: "Reserves and stipends sized for old prices are too small"
+    summary: >-
+      Fixed post-call reserves and minimum-gas checks were sized for a 22,100 slot write; it can now cost
+      110,020. The 2,300 stipend of transfer/send cannot create a storage slot in the receiver.
+    fix: "Recalculate reserves at the new prices, include the 63/64 factor, and avoid transfer/send to contracts."
+
+  - id: FW-GLAM-8
+    eips: [8037]
+    invariant: INV-8
+    reference: https://github.com/ethereum/glamsterdam-gas-invariants/blob/main/invariants/inv-8.md
+    title: "A mined 7702 delegation may be rolled back and reused"
+    summary: >-
+      An EIP-7702 authorization for an empty account now costs 235,606 gas, not 25,000. An underfunded
+      type-4 transaction is mined with its delegation rolled back, leaving a valid signed authorization in
+      public. If the delegate's initialize/setup is unprotected, anyone can apply it and take over.
+    fix: "Bind delegate initialization to the account's signature or self-calls; verify account code after type-4 txs."
